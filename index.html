@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Fusion OS — Dual AI</title>
+  <style>
+    body {
+      background-color: black;
+      color: lime;
+      font-family: 'Courier New', monospace;
+      padding: 20px;
+    }
+    .cursor {
+      display: inline-block;
+      width: 10px;
+      background: lime;
+      animation: blink 1s steps(1) infinite;
+    }
+    @keyframes blink {
+      50% { background: transparent; }
+    }
+    input {
+      background: black;
+      border: none;
+      color: lime;
+      font-family: monospace;
+      font-size: 16px;
+      width: 90%;
+      outline: none;
+    }
+    .response { margin: 5px 0; }
+    .ai { color: cyan; }
+    .lq { color: yellowgreen; }
+    .alert {
+      color: red;
+      animation: blink 0.6s steps(1) infinite;
+    }
+  </style>
+</head>
+<body>
+  <h1>Fusion OS Terminal</h1>
+  <div id="output">
+    <p>Пользователь: Манас</p>
+    <p>Загрузка ядра...</p>
+    <p id="progress">[░░░░░░░░░░] 0%</p>
+  </div>
+  <br>
+  <p><strong>fusion@terminal:~$</strong> <input id="command" autofocus> <span class="cursor"></span></p>
+
+  <!-- Звуки -->
+  <audio id="beep" src="https://actions.google.com/sounds/v1/cartoon/pop.ogg"></audio>
+  <audio id="alert" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
+  <script>
+    const cmd = document.getElementById('command');
+    const output = document.getElementById('output');
+    const beep = document.getElementById('beep');
+    const alertSound = document.getElementById('alert');
+    let progress = 0;
+    let mode = "smart";
+
+    // Загрузка ядра
+    const progEl = document.getElementById("progress");
+    const loadInterval = setInterval(() => {
+      progress += 10;
+      progEl.textContent = `[${'█'.repeat(progress/10)}${'░'.repeat(10 - progress/10)}] ${progress}%`;
+      if (progress >= 100) {
+        clearInterval(loadInterval);
+        progEl.textContent = "✅ Ядро успешно загружено.";
+      }
+    }, 400);
+
+    // Умный ИИ
+    const smartAI = (input) => {
+      const lower = input.toLowerCase();
+      if (lower === "привет") return "Здравствуйте, Манас! Я FusionGuard AI.";
+      if (lower.includes("помоги")) return "Я здесь, чтобы помочь. Спроси что угодно.";
+      if (lower === "status") return "🟢 Все системы работают нормально.";
+      if (lower === "ai") return "🤖 FusionGuard AI: Привет, Манас! Чем могу помочь?";
+      if (lower === "help") return "Доступные команды: привет, помоги, status, ai, v3, lq";
+      if (lower === "v3") {
+        alertSound.play();
+        return "‼️ ВНИМАНИЕ: Обнаружен вирус V3! Система под угрозой!";
+      }
+      if (lower === "lq") return "🔁 Переключаюсь на LQ AI...";
+      return null; // Использовать Hugging Face
+    };
+
+    // LQ ИИ
+    const lqAI = (input) => {
+      const low = input.toLowerCase();
+      if (low === "привет") return "ку";
+      if (low.includes("помоги")) return "чем";
+      if (low === "v3") return "вирус? ой.";
+      if (low === "status") return "всё норм";
+      if (low === "ai") return "я тут";
+      if (low === "help") return "команды: привет, v3, help, ai";
+      if (low === "ai+") return "⬆️ Умный ИИ включён.";
+      return "я ничо не понял";
+    };
+
+    // Hugging Face API
+    const hfApiKey = "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"; // Твой ключ
+    async function askHF(question) {
+      try {
+        const res = await fetch("https://api-inference.huggingface.co/models/google/flan-t5-small", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${hfApiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ inputs: question })
+        });
+        const data = await res.json();
+        return data?.[0]?.generated_text || "🤖 Нет ответа от Hugging Face.";
+      } catch (err) {
+        console.error("Ошибка:", err);
+        return "⚠️ Ошибка подключения к Hugging Face.";
+      }
+    }
+
+    // Обработка команд
+    cmd.addEventListener("keydown", async function(e) {
+      if (e.key === "Enter") {
+        const inputText = cmd.value.trim();
+        if (inputText === "") return;
+
+        const userP = document.createElement("p");
+        userP.innerHTML = `<strong>Ты:</strong> ${inputText}`;
+        output.appendChild(userP);
+
+        beep.play();
+
+        let response = "";
+        let className = "ai";
+
+        if (mode === "smart") {
+          const smartResp = smartAI(inputText);
+          if (inputText.toLowerCase() === "lq") {
+            mode = "lq";
+            response = "🔁 Переключение на LQ AI...";
+            className = "lq";
+          } else if (smartResp !== null) {
+            response = smartResp;
+            if (inputText.toLowerCase() === "v3") className = "alert";
+          } else {
+            response = await askHF(inputText);
+          }
+        } else {
+          response = lqAI(inputText);
+          className = "lq";
+          if (inputText.toLowerCase() === "ai+") {
+            mode = "smart";
+            response = "🔁 Переключение на умного ИИ...";
+            className = "ai";
+          }
+        }
+
+        const botP = document.createElement("p");
+        botP.className = className;
+        botP.innerHTML = `<strong>FusionGuard ${mode === "lq" ? "LQ" : "AI"}:</strong> ${response}`;
+        output.appendChild(botP);
+
+        cmd.value = "";
+        window.scrollTo(0, document.body.scrollHeight);
+      }
+    });
+  </script>
+</body>
+</html>
